@@ -48,10 +48,14 @@ const MI=['Infectiologie','Pneumologie','Maladies digestives','Néphrologie','En
 H.forEach((h,i)=>SV[i].forEach(n=>{const s={id:uid(),h:h.id,name:n};S.push(s);(n=='Médecine interne'?MI:['Général']).forEach(m=>M.push({id:uid(),s:s.id,name:m}))}));return{H,S,M,docs:[],notes:[]}}
 let D=store.load()||seed(),V='home',T='doc',A=null,N=null,M=null,Q='',AT=[],F={h:'',s:'',m:'',type:'',tag:'',from:''},G={h:'',s:''},AS=null,DL=null,MC={},DE='';
 const AIK=()=>localStorage.getItem('mednote_gkey')||'',AIM=()=>localStorage.getItem('mednote_gmodel')||'gemini-2.5-flash';
+async function gcall(k,auth,prompt){const h={'Content-Type':'application/json'};if(auth=='header')h['x-goog-api-key']=k;else h['Authorization']='Bearer '+k;
+const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${AIM()}:generateContent`+(auth=='query'?'?key='+encodeURIComponent(k):''),{method:'POST',headers:h,body:JSON.stringify({contents:[{role:'user',parts:[{text:prompt}]}],generationConfig:{responseMimeType:'application/json'}})});
+if(!r.ok){let m='';try{m=(await r.json()).error.message}catch(e){}const e={code:'api_'+r.status,message:(m||'clé invalide, modèle indisponible ou quota dépassé')+(r.status==404?' — essayez l\'autre modèle dans Paramètres':'')};throw e}
+return r.json()}
 async function aiJSON(prompt){const k=AIK();if(!k)throw{code:'cle_absente',message:'aucune clé API Gemini renseignée'};
-let r;try{r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${AIM()}:generateContent`,{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':k},body:JSON.stringify({contents:[{role:'user',parts:[{text:prompt}]}],generationConfig:{responseMimeType:'application/json'}})})}catch(e){throw{code:'reseau',message:'réseau indisponible ou requête bloquée'}}
-if(!r.ok){let m='';try{m=(await r.json()).error.message}catch(e){}throw{code:'api_'+r.status,message:(m||'clé invalide, modèle indisponible ou quota dépassé')+(r.status==404?' — essayez l\'autre modèle dans Paramètres':'')}}
-const j=await r.json(),txt=((j.candidates||[])[0]?.content?.parts||[]).map(b=>b.text||'').join('').trim().replace(/^```json\s*|```\s*$/g,'').replace(/^```\s*|```\s*$/g,'');
+let j,errs=[];for(const auth of['header','bearer','query']){try{j=await gcall(k,auth,prompt);break}catch(e){errs.push(auth+': '+(e.message||e.code));if(!/UNAUTHENTICATED|401|invalid|credentials/i.test(e.message||''))throw e}}
+if(!j)throw{code:'auth_incompatible',message:"Google a récemment changé le format de ses clés (préfixe AQ.) ; aucune des méthodes d'authentification n'a fonctionné : "+errs.join(' | ')};
+const txt=((j.candidates||[])[0]?.content?.parts||[]).map(b=>b.text||'').join('').trim().replace(/^```json\s*|```\s*$/g,'').replace(/^```\s*|```\s*$/g,'');
 if(!txt)throw{code:'reponse_vide',message:'réponse vide (contenu peut-être filtré ou coupé)'};
 try{return JSON.parse(txt)}catch(e){throw{code:'reponse_invalide',message:'réponse IA non JSON'}}}
 async function aiTest(){D.aierr='';save();toast('Test en cours…');try{const r=await aiJSON('Réponds {"ok":true}');D.aiok=!!r.ok;toast(r.ok?'✓ Clé Gemini valide':'Réponse inattendue')}catch(e){D.aierr=(e.code||'erreur')+' : '+(e.message||'');D.aiok=false;toast('Échec : '+D.aierr)}save();render()}
