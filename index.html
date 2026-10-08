@@ -245,8 +245,10 @@ history.replaceState({},'',location.pathname);sessionStorage.removeItem('mednote
 if(!v||st!==exp)return toast('Connexion Google invalide, réessayez');
 toast('Finalisation de la connexion…');
 try{const r=await fetch('https://oauth2.googleapis.com/token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({client_id:CID(),code,code_verifier:v,grant_type:'authorization_code',redirect_uri:REDIR()})});
-if(!r.ok)throw 0;const j=await r.json();TK=j.access_token;TX=Date.now()+(j.expires_in-60)*1000;if(j.refresh_token)localStorage.setItem('mednote_grt',j.refresh_token);
-toast('Connecté à Google Drive, une bonne fois pour toutes');await rootId();await baseFolders();await migrateOld().catch(()=>{})}catch(e){toast('Connexion Google impossible, réessayez')}render()}
+const j=await r.json().catch(()=>({}));
+if(!r.ok){D.derr='oauth_'+r.status+' : '+(j.error||'')+(j.error_description?' — '+j.error_description:'');save();toast('Connexion Google refusée : '+(j.error||r.status));render();return}
+TK=j.access_token;TX=Date.now()+(j.expires_in-60)*1000;if(j.refresh_token)localStorage.setItem('mednote_grt',j.refresh_token);
+toast('Connecté à Google Drive, une bonne fois pour toutes');await rootId();await baseFolders();await migrateOld().catch(()=>{})}catch(e){D.derr='oauth_reseau : '+(e&&e.message||'échec réseau');save();toast('Connexion Google impossible (réseau)')}render()}
 const b64=b=>new Promise((r,j)=>{const f=new FileReader();f.onload=()=>r(f.result.split(',')[1]);f.onerror=j;f.readAsDataURL(b)});
 const unb64=(x,t)=>{const a=atob(x),u=new Uint8Array(a.length);for(let i=0;i<a.length;i++)u[i]=a.charCodeAt(i);return new Blob([u],{type:t})};
 const MT={pdf:'application/pdf',doc:'application/msword',ppt:'application/vnd.ms-powerpoint',jpg:'image/jpeg',jpeg:'image/jpeg',png:'image/png',txt:'text/plain',json:'application/json',docx:'application/vnd.openxmlformats-officedocument.wordprocessingml.document',pptx:'application/vnd.openxmlformats-officedocument.presentationml.presentation'};
